@@ -4,9 +4,7 @@ import cv2
 
 def get_training_augmentation(WIDTH, HEIGHT):
     train_transform = [
-        albu.SmallestMaxSize(
-            max_size=int(max(WIDTH, HEIGHT) * 1.25), always_apply=True
-        ),
+        albu.SmallestMaxSize(max_size=int(max(WIDTH, HEIGHT) * 1.25), always_apply=True),
         albu.HorizontalFlip(p=0.5),
         albu.ShiftScaleRotate(
             scale_limit=(-0.2, 0.2),

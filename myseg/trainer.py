@@ -14,13 +14,7 @@ from myseg.augmentations import (
 )
 from myseg.configs import TrainConfig, TrainerConfig
 from myseg.sam import SAM
-from myseg.smp_train_utils import (
-    CustomValidEpoch,
-    Dataset,
-    SamTrainEpoch,
-    SliceDataset,
-    ValidationDataset,
-)
+from myseg.smp_train_utils import CustomValidEpoch, Dataset, SamTrainEpoch, SliceDataset, ValidationDataset
 from myseg.utils import get_train_test_id_set
 
 
@@ -65,17 +59,13 @@ def build_dataset(config: TrainerConfig, preprocessing_fn) -> Dict[str, Any]:
     train_dataset = Dataset(
         select_id_set=train_set,
         base_path=base_path,
-        augmentation=get_training_augmentation(
-            config.data_config.TRAIN_WIDTH, config.data_config.TRAIN_HEIGHT
-        ),
+        augmentation=get_training_augmentation(config.data_config.TRAIN_WIDTH, config.data_config.TRAIN_HEIGHT),
         preprocessing=albu_preprocessing,
     )
     valid_dataset = ValidationDataset(
         select_id_set=test_set,
         base_path=base_path,
-        augmentation=get_validation_augmentation(
-            config.data_config.VALIDATE_WIDTH, config.data_config.VALIDATE_HEIGHT
-        ),
+        augmentation=get_validation_augmentation(config.data_config.VALIDATE_WIDTH, config.data_config.VALIDATE_HEIGHT),
         preprocessing=albu_preprocessing,
     )
     train_loader = DataLoader(
@@ -122,17 +112,13 @@ def build_dataset(config: TrainerConfig, preprocessing_fn) -> Dict[str, Any]:
     }
 
 
-def build_train_iter(
-    config: TrainerConfig, model: torch.nn.Module, dataset_dic
-) -> Dict[str, Any]:
+def build_train_iter(config: TrainerConfig, model: torch.nn.Module, dataset_dic) -> Dict[str, Any]:
     loss = config.train_config.get_loss_function()
     metrics = config.metric_config.get_metrics()
     optim = config.train_config.get_optimizer()
     device = config.train_config.DEVICE
     vaid_pads = config.data_config.test_padding_dict
-    _ = (
-        config.data_config.train_padding_dict
-    )  # just make sure train_padding is correct.
+    _ = config.data_config.train_padding_dict  # just make sure train_padding is correct.
 
     # build optimizer and train_epoch
     if config.train_config.USE_SAM:
@@ -211,27 +197,19 @@ def train(
         metric = config.metric_config.METRICS[0]
         if max_score < valid_logs[metric]:
             max_score = valid_logs[metric]
-            save_path = os.path.join(
-                config.metric_config.MODEL_SAVE_PATH, f"{config.MODEL_NAME}.pth"
-            )
+            save_path = os.path.join(config.metric_config.MODEL_SAVE_PATH, f"{config.MODEL_NAME}.pth")
             torch.save(model, save_path)
             print("Model saved!")
 
         if i == config.train_config.DECAY_LR_AT_EPOCH:
             # optimizer.param_groups[0]['lr'] = LR * 0.1
-            optimizer.param_groups[0]["lr"] = (
-                config.train_config.LR * config.train_config.LR_DECAY_RATE
-            )
-            print(
-                f"Decrease decoder learning rate to {optimizer.param_groups[0]['lr']}!"
-            )
+            optimizer.param_groups[0]["lr"] = config.train_config.LR * config.train_config.LR_DECAY_RATE
+            print(f"Decrease decoder learning rate to {optimizer.param_groups[0]['lr']}!")
         # log history
         history[i] = dict()
         history[i]["train"] = train_logs
         history[i]["validation"] = valid_logs
-        save_path = os.path.join(
-            config.metric_config.METRIC_SAVE_PATH, f"{config.MODEL_NAME}_logs.json"
-        )
+        save_path = os.path.join(config.metric_config.METRIC_SAVE_PATH, f"{config.MODEL_NAME}_logs.json")
         with open(save_path, "wt") as f:
             json.dump(history, f, indent=2)
 
@@ -242,9 +220,7 @@ class Trainer:
     "entry point of training"
 
     def _save_config(self, config: TrainerConfig):
-        save_path = os.path.join(
-            config.metric_config.METRIC_SAVE_PATH, f"{config.MODEL_NAME}_config.json"
-        )
+        save_path = os.path.join(config.metric_config.METRIC_SAVE_PATH, f"{config.MODEL_NAME}_config.json")
         with open(save_path, "wt") as f:
             json.dump(config.dict(), f, indent=2)
 
