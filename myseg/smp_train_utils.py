@@ -104,7 +104,9 @@ class SliceDataset(Dataset):
         image_slices = []
         for i in range(len(self.label_fps)):
             label = np.load(self.label_fps[i])
-            cur = create_slices_from_label(label, self.grid_num, self.min_h, self.min_w, self.pad)
+            cur = create_slices_from_label(
+                label, self.grid_num, self.min_h, self.min_w, self.pad
+            )
             image_slices.append(cur)
         self.image_slices = image_slices
 
@@ -173,7 +175,9 @@ class SamTrainEpoch(TrainEpoch):
         self.optimizer.first_step(zero_grad=True)
 
         # second step
-        self.loss(self.model.forward(x), y).backward()  # make sure to do a full forward pass
+        self.loss(
+            self.model.forward(x), y
+        ).backward()  # make sure to do a full forward pass
         self.optimizer.second_step(zero_grad=True)
 
         return loss, prediction
@@ -244,7 +248,9 @@ class CustomValidEpoch(ValidEpoch):
 
         logs = {}
         loss_meter = AverageValueMeter()
-        metrics_meters = {metric.__name__: AverageValueMeter() for metric in self.metrics}
+        metrics_meters = {
+            metric.__name__: AverageValueMeter() for metric in self.metrics
+        }
 
         with tqdm(
             dataloader,

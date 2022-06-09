@@ -4,10 +4,12 @@ import cv2
 
 def get_training_augmentation(WIDTH, HEIGHT):
     train_transform = [
-        albu.SmallestMaxSize(max_size=HEIGHT, always_apply=True),
+        albu.SmallestMaxSize(
+            max_size=int(max(WIDTH, HEIGHT) * 1.25), always_apply=True
+        ),
         albu.HorizontalFlip(p=0.5),
         albu.ShiftScaleRotate(
-            scale_limit=(-0.8, 0.8),
+            scale_limit=(-0.2, 0.2),
             rotate_limit=0.3,
             shift_limit=0.3,
             p=1,
@@ -16,24 +18,24 @@ def get_training_augmentation(WIDTH, HEIGHT):
         ),
         # albu.PadIfNeeded(min_height=HEIGHT, min_width=WIDTH, always_apply=True, border_mode=cv2.BORDER_CONSTANT, value=[255]*3),
         albu.RandomCrop(height=HEIGHT, width=WIDTH, always_apply=True),
-        albu.GaussNoise(p=0.4),
-        albu.Perspective(p=0.4),
-        albu.OneOf(
-            [
-                albu.CLAHE(p=0.8),
-                albu.RandomBrightness(p=0.8),
-                albu.RandomGamma(p=0.8),
-            ],
-            p=0.9,
-        ),
-        albu.OneOf(
-            [
-                albu.Sharpen(p=1),
-                albu.Blur(blur_limit=3, p=1),
-                albu.MotionBlur(blur_limit=3, p=1),
-            ],
-            p=0.3,
-        ),
+        # albu.GaussNoise(p=0.4),
+        # albu.Perspective(p=0.4),
+        # albu.OneOf(
+        #     [
+        #         albu.CLAHE(p=0.8),
+        #         albu.RandomBrightness(p=0.8),
+        #         albu.RandomGamma(p=0.8),
+        #     ],
+        #     p=0.9,
+        # ),
+        # albu.OneOf(
+        #     [
+        #         albu.Sharpen(p=1),
+        #         albu.Blur(blur_limit=3, p=1),
+        #         albu.MotionBlur(blur_limit=3, p=1),
+        #     ],
+        #     p=0.3,
+        # ),
         #         albu.OneOf(
         #             [
         #                 albu.RandomContrast(p=1),

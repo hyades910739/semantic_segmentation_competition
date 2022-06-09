@@ -12,7 +12,7 @@ from myseg.augmentations import (
     get_training_slice_dataset_augmentation,
     get_validation_augmentation,
 )
-from myseg.configs import Config, TrainConfig
+from myseg.configs import TrainConfig, TrainerConfig
 from myseg.sam import SAM
 from myseg.smp_train_utils import (
     CustomValidEpoch,
@@ -47,14 +47,14 @@ def set_up_cuda_env(train_config: TrainConfig) -> int:
     return int(gpu_setting)
 
 
-def build_model(config: Config, gpu_setting: int):
+def build_model(config: TrainerConfig, gpu_setting: int):
     model = config.model_config.get_model()
     if gpu_setting > 1:
         model = torch.nn.DataParallel(model)
     return model
 
 
-def build_dataset(config: Config, preprocessing_fn) -> Dict[str, Any]:
+def build_dataset(config: TrainerConfig, preprocessing_fn) -> Dict[str, Any]:
     base_path = config.data_config.FOLDER_PATH
     albu_preprocessing = get_albu_preprocessing(preprocessing_fn)
     train_set, test_set = get_train_test_id_set(
@@ -65,13 +65,17 @@ def build_dataset(config: Config, preprocessing_fn) -> Dict[str, Any]:
     train_dataset = Dataset(
         select_id_set=train_set,
         base_path=base_path,
-        augmentation=get_training_augmentation(config.data_config.TRAIN_WIDTH, config.data_config.TRAIN_HEIGHT),
+        augmentation=get_training_augmentation(
+            config.data_config.TRAIN_WIDTH, config.data_config.TRAIN_HEIGHT
+        ),
         preprocessing=albu_preprocessing,
     )
     valid_dataset = ValidationDataset(
         select_id_set=test_set,
         base_path=base_path,
-        augmentation=get_validation_augmentation(config.data_config.TEST_WIDTH, config.data_config.TEST_HEIGHT),
+        augmentation=get_validation_augmentation(
+            config.data_config.VALIDATE_WIDTH, config.data_config.VALIDATE_HEIGHT
+        ),
         preprocessing=albu_preprocessing,
     )
     train_loader = DataLoader(
@@ -94,13 +98,13 @@ def build_dataset(config: Config, preprocessing_fn) -> Dict[str, Any]:
                 config.data_config.TRAIN_WIDTH, config.data_config.TRAIN_HEIGHT
             ),
             preprocessing=albu_preprocessing,
-            pad=100,
+            pad=50,
             min_h=config.data_config.TRAIN_HEIGHT,
             min_w=config.data_config.TRAIN_WIDTH,
         )
         slice_loader = DataLoader(
             slice_dataset,
-            batch_size=config.data_config.TRAIN_WIDTH,
+            batch_size=config.train_config.TRAIN_BATCH_SIZE,
             shuffle=True,
             num_workers=config.train_config.DATALOADER_NUM_WORKER,
         )
@@ -118,13 +122,17 @@ def build_dataset(config: Config, preprocessing_fn) -> Dict[str, Any]:
     }
 
 
-def build_train_iter(config: Config, model: torch.nn.Module, dataset_dic) -> Dict[str, Any]:
+def build_train_iter(
+    config: TrainerConfig, model: torch.nn.Module, dataset_dic
+) -> Dict[str, Any]:
     loss = config.train_config.get_loss_function()
     metrics = config.metric_config.get_metrics()
     optim = config.train_config.get_optimizer()
     device = config.train_config.DEVICE
     vaid_pads = config.data_config.test_padding_dict
-    _ = config.data_config.train_padding_dict  # just make sure train_padding is correct.
+    _ = (
+        config.data_config.train_padding_dict
+    )  # just make sure train_padding is correct.
 
     # build optimizer and train_epoch
     if config.train_config.USE_SAM:
@@ -176,7 +184,7 @@ def build_train_iter(config: Config, model: torch.nn.Module, dataset_dic) -> Dic
 
 
 def train(
-    config: Config,
+    config: TrainerConfig,
     model,
     optimizer,
     train_epoch,
@@ -190,7 +198,7 @@ def train(
     history = dict()
     max_score = -1e6
 
-    for i in range(0, config.train_config.NUM_EPOCH):
+    for i in range(1, config.train_config.NUM_EPOCH + 1):
 
         print("\nEpoch: {}".format(i))
         train_logs = train_epoch.run(train_loader)
@@ -203,19 +211,27 @@ def train(
         metric = config.metric_config.METRICS[0]
         if max_score < valid_logs[metric]:
             max_score = valid_logs[metric]
-            save_path = os.path.join(config.metric_config.MODEL_SAVE_PATH, f"{config.MODEL_NAME}.pth")
+            save_path = os.path.join(
+                config.metric_config.MODEL_SAVE_PATH, f"{config.MODEL_NAME}.pth"
+            )
             torch.save(model, save_path)
             print("Model saved!")
 
         if i == config.train_config.DECAY_LR_AT_EPOCH:
             # optimizer.param_groups[0]['lr'] = LR * 0.1
-            optimizer["lr"] = config.train_config.LR * config.train_config.LR_DECAY_RATE
-            print(f"Decrease decoder learning rate to {optimizer['lr']}!")
+            optimizer.param_groups[0]["lr"] = (
+                config.train_config.LR * config.train_config.LR_DECAY_RATE
+            )
+            print(
+                f"Decrease decoder learning rate to {optimizer.param_groups[0]['lr']}!"
+            )
         # log history
         history[i] = dict()
         history[i]["train"] = train_logs
         history[i]["validation"] = valid_logs
-        save_path = os.path.join(config.metric_config.METRIC_SAVE_PATH, f"{config.MODEL_NAME}_logs.json")
+        save_path = os.path.join(
+            config.metric_config.METRIC_SAVE_PATH, f"{config.MODEL_NAME}_logs.json"
+        )
         with open(save_path, "wt") as f:
             json.dump(history, f, indent=2)
 
@@ -225,7 +241,16 @@ def train(
 class Trainer:
     "entry point of training"
 
-    def train(self, config: Config):
+    def _save_config(self, config: TrainerConfig):
+        save_path = os.path.join(
+            config.metric_config.METRIC_SAVE_PATH, f"{config.MODEL_NAME}_config.json"
+        )
+        with open(save_path, "wt") as f:
+            json.dump(config.dict(), f, indent=2)
+
+    def train(self, config: TrainerConfig):
+        config.metric_config.check_path()
+        self._save_config(config)
         gpu_setting = set_up_cuda_env(config.train_config)
         model = build_model(config, gpu_setting)
         preprocessing_fn = config.model_config.get_model_preprocess_funciton()
@@ -244,6 +269,8 @@ class Trainer:
         )
 
         self.history = history
+        self.dataset_dic = dataset_dic
+        self.epochs = epochs
         self.model = model
 
         print("Training Complete!")

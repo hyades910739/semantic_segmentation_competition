@@ -68,7 +68,10 @@ def resize_batch_image(
     else:
         array = tensor.numpy()
     array = array.squeeze(1)
-    resized_array = [albu.resize(image[height_slice, :], height, width, resize_interpolation) for image in array]
+    resized_array = [
+        albu.resize(image[height_slice, :], height, width, resize_interpolation)
+        for image in array
+    ]
     resized_array = [np.expand_dims(i, 0) for i in resized_array]
     resized_array = np.concatenate(resized_array)
     resized_array = np.expand_dims(resized_array, 1)
@@ -100,7 +103,9 @@ def resize_batch_image(
 #     return {'pad_l':l,'pad_r':r, 'pad_u':u, 'pad_d':d}
 
 
-def create_slices_from_label(label, grid_num=(6, 6), min_h=384, min_w=384, pad=20):  # -> List[List[slice, slice]]
+def create_slices_from_label(
+    label, grid_num=(6, 6), min_h=384, min_w=384, pad=20
+):  # -> List[List[slice, slice]]
     assert len(label.shape) == 2
     # assert len(label.shape) == 3
 
@@ -115,7 +120,11 @@ def create_slices_from_label(label, grid_num=(6, 6), min_h=384, min_w=384, pad=2
             vals[int(row_idx / row_step), int(col_idx / col_step)] = label[
                 row_idx : row_idx + row_step, col_idx : col_idx + col_step
             ].mean()
-    not_empty = [(r, c, val) for (r, c), val in sorted(vals.items(), key=lambda x: x[0]) if val > 0]
+    not_empty = [
+        (r, c, val)
+        for (r, c), val in sorted(vals.items(), key=lambda x: x[0])
+        if val > 0
+    ]
     if not not_empty:
         return []
     # merge groups
@@ -159,9 +168,13 @@ def create_slices_from_label(label, grid_num=(6, 6), min_h=384, min_w=384, pad=2
     return slices
 
 
-def calculate_padding_size_by_augmentation(origin_h, origin_w, target_h, target_w) -> Dict[str, int]:
+def calculate_padding_size_by_augmentation(
+    origin_h, origin_w, target_h, target_w
+) -> Dict[str, int]:
     max_size = max(target_w, target_h)
-    resized = albu.longest_max_size(np.random.normal(size=(origin_h, origin_w)), max_size, 0)
+    resized = albu.longest_max_size(
+        np.random.normal(size=(origin_h, origin_w)), max_size, 0
+    )
     *_, resize_h, resize_w = resized.shape
     width_pad = (target_w - resize_w) / 2
     r, l = math.ceil(width_pad), math.floor(width_pad)
@@ -169,5 +182,7 @@ def calculate_padding_size_by_augmentation(origin_h, origin_w, target_h, target_
     d, u = math.ceil(height_pad), math.floor(height_pad)
     result = {"pad_l": l, "pad_r": r, "pad_u": u, "pad_d": d}
     if any([i < 0 for i in result.values()]):
-        raise ValueError(f"Got negative padding value `{result}`, change your train/test width or height in config.")
+        raise ValueError(
+            f"Got negative padding value `{result}`, change your train/test width or height in config."
+        )
     return result

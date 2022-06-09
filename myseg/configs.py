@@ -10,7 +10,9 @@ from myseg.utils import calculate_padding_size_by_augmentation
 
 
 def get_timestamp() -> str:
-    return (datetime.datetime.now() + datetime.timedelta(hours=8)).strftime("%y%m%d_%H%M")
+    return (datetime.datetime.now() + datetime.timedelta(hours=8)).strftime(
+        "%y%m%d_%H%M"
+    )
 
 
 class TrainConfig(BaseModel):
@@ -71,7 +73,9 @@ class MetricsConfig(BaseModel):
         }
         metrics = []
         for metric in self.METRICS:
-            cur = METRIC_MAPS[metric](threshold=self.THRESHOLD, activation=self.EVAL_ACTIVATION)
+            cur = METRIC_MAPS[metric](
+                threshold=self.THRESHOLD, activation=self.EVAL_ACTIVATION
+            )
             metrics.append(cur)
         return metrics
 
@@ -93,7 +97,9 @@ class ModelConfig(BaseModel):
                 classes=1,
                 activation=self.ACTIVATION,
                 decoder_attention_type=self.DECODER_ATTENTION_TYPE,
-                decoder_channels=[int(self.CHANNEL_FACTOR * i) for i in (256, 128, 64, 32, 16)],
+                decoder_channels=[
+                    int(self.CHANNEL_FACTOR * i) for i in (256, 128, 64, 32, 16)
+                ],
             )
         else:
             raise ValueError(f"unknown DECODER NAME: {self.DECODER}")
@@ -101,10 +107,14 @@ class ModelConfig(BaseModel):
 
     def get_model_preprocess_funciton(self) -> Callable:
         try:
-            preprocessing_fn = smp.encoders.get_preprocessing_fn(self.ENCODER, self.ENCODER_WEIGHTS)
+            preprocessing_fn = smp.encoders.get_preprocessing_fn(
+                self.ENCODER, self.ENCODER_WEIGHTS
+            )
         except KeyError:
             # some encoder dont have corresponding preprocessing_fn, use following instead:
-            preprocessing_fn = smp.encoders.get_preprocessing_fn("timm-efficientnet-b2", self.ENCODER_WEIGHTS)
+            preprocessing_fn = smp.encoders.get_preprocessing_fn(
+                "timm-efficientnet-b2", self.ENCODER_WEIGHTS
+            )
         return preprocessing_fn
 
 
@@ -113,8 +123,9 @@ class DataConfig(BaseModel, extra="allow"):
     ORIGINAL_WIDTH: int = 1716
     TRAIN_WIDTH: int = 320
     TRAIN_HEIGHT: int = 320
-    TEST_WIDTH: int = 384
-    TEST_HEIGHT: int = 384
+    VALIDATE_WIDTH: int = 384
+    VALIDATE_HEIGHT: int = 384
+
     FOLDER_PATH: str = "SEG_Train_Datasets/"
     TEST_RATIO: float = 0.2
     TRAIN_TEST_SPLIT_SEED: int = 123
@@ -136,21 +147,30 @@ class DataConfig(BaseModel, extra="allow"):
             self._test_padding_dict = calculate_padding_size_by_augmentation(
                 origin_h=self.ORIGINAL_HEIGHT,
                 origin_w=self.ORIGINAL_WIDTH,
-                target_h=self.TEST_HEIGHT,
-                target_w=self.TEST_WIDTH,
+                target_h=self.VALIDATE_HEIGHT,
+                target_w=self.VALIDATE_WIDTH,
             )
         return self._test_padding_dict
 
 
-class Config(BaseModel):
+class TrainerConfig(BaseModel):
     train_config: TrainConfig = TrainConfig()
     data_config: DataConfig = DataConfig()
     model_config: ModelConfig = ModelConfig()
     metric_config: MetricsConfig = MetricsConfig()
     MODEL_NAME = f"{get_timestamp()}_{model_config.DECODER}_{model_config.ENCODER}_width{data_config.TRAIN_WIDTH}"
 
+    @property
+    def MODELE_PATH(self):
+        "where you can get model file"
+        return os.path.join(
+            self.metric_config.MODEL_SAVE_PATH, f"{self.MODEL_NAME}.pth"
+        )
+
     @classmethod
-    def load_from_seperate_files(cls, data_config_fname=None, model_config_fname=None, train_config_name=None):
+    def load_from_seperate_files(
+        cls, data_config_fname=None, model_config_fname=None, train_config_name=None
+    ):
         configs = [TrainConfig, DataConfig, ModelConfig]
         fnames = [train_config_name, data_config_fname, model_config_fname]
         param_names = ["train_config", "data_config", "model_config"]
@@ -164,4 +184,32 @@ class Config(BaseModel):
             #     else:
             #         fname = config_fname
             params[pname] = config.parse_file(fname)
-        return Config(**params[pname])
+        return TrainerConfig(**params[pname])
+
+
+class PredicterConfig(BaseModel):
+    FOLDER_PATH: str
+    TARGET_HEIGHT: int = 320
+    TARGET_WIDTH: int = 320
+    BATCH_SIZE: int = 32
+    # following can derived from trainer_config
+    ENCODER_NAME: str
+    ENCODER_WEIGHT: str
+    ORIGINAL_HEIGHT: int = 942
+    ORIGINAL_WIDTH: int = 1716
+    RESIZE_INTERPOLATION: int = 1
+    DEVICE: str = "cuda"
+
+    @classmethod
+    def create_from_trainer_config(
+        cls,
+        FOLDER_PATH: str,
+        TARGET_HEIGHT: int,
+        TARGET_WIDTH: int,
+        BATCH_SIZE: int,
+        trainer_config: TrainerConfig,
+    ):
+
+        return PredicterConfig(
+            FOLDER_PATH=FOLDER_PATH,
+        )

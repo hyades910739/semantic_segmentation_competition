@@ -36,7 +36,9 @@ def build_test_time_preprocess(
     try:
         preprocessing_fn = smp.encoders.get_preprocessing_fn(ENCODER, ENCODER_WEIGHTS)
     except KeyError:
-        preprocessing_fn = smp.encoders.get_preprocessing_fn("timm-efficientnet-b2", ENCODER_WEIGHTS)
+        preprocessing_fn = smp.encoders.get_preprocessing_fn(
+            "timm-efficientnet-b2", ENCODER_WEIGHTS
+        )
     test_image_preprocess = [
         albu.LongestMaxSize(max_size=pred_width, always_apply=True),
         albu.PadIfNeeded(
@@ -69,7 +71,9 @@ def test_predict(
     names = load_test_image_paths(folder_path=test_image_folder_path)
     images = [cv2.imread(name) for name in names]
 
-    test_image_preprocess = build_test_time_preprocess(pred_height, pred_width, ENCODER, ENCODER_WEIGHTS)
+    test_image_preprocess = build_test_time_preprocess(
+        pred_height, pred_width, ENCODER, ENCODER_WEIGHTS
+    )
     # find padding size:
     # pad_l, pad_r = get_padding_size( pred_height, pred_width, images[0])
     pad = get_pad_r_and_pad_l(
@@ -175,14 +179,30 @@ def find_threshold_for_testing(
         gt = Y_interpolation[interpolation]
         fscore = dict()
         for i in range(0, 10):
-            fscore[i / 10] = smp.utils.metrics.Fscore(threshold=i / 10, **fscore_kwargs).forward(preds, gt).numpy().tolist()
+            fscore[i / 10] = (
+                smp.utils.metrics.Fscore(threshold=i / 10, **fscore_kwargs)
+                .forward(preds, gt)
+                .numpy()
+                .tolist()
+            )
             fscore[i / 10 + 0.05] = (
-                smp.utils.metrics.Fscore(threshold=i / 10 + 0.05, **fscore_kwargs).forward(preds, gt).numpy().tolist()
+                smp.utils.metrics.Fscore(threshold=i / 10 + 0.05, **fscore_kwargs)
+                .forward(preds, gt)
+                .numpy()
+                .tolist()
             )
         for i in range(1, 10):
-            fscore[i / 10] = smp.utils.metrics.Fscore(threshold=i / 10, **fscore_kwargs).forward(preds, gt).numpy().tolist()
+            fscore[i / 10] = (
+                smp.utils.metrics.Fscore(threshold=i / 10, **fscore_kwargs)
+                .forward(preds, gt)
+                .numpy()
+                .tolist()
+            )
             fscore[i / 10 + 0.005] = (
-                smp.utils.metrics.Fscore(threshold=i / 10 + 0.05, **fscore_kwargs).forward(preds, gt).numpy().tolist()
+                smp.utils.metrics.Fscore(threshold=i / 10 + 0.05, **fscore_kwargs)
+                .forward(preds, gt)
+                .numpy()
+                .tolist()
             )
 
         interpolation_fscores[interpolation] = max(fscore.items(), key=lambda x: x[1])
